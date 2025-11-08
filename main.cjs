@@ -1,5 +1,7 @@
 // main.js
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { startDiscovery, getDevices, onDevicesUpdated } = require('./discover-wled.cjs');
 if (require('electron-squirrel-startup')) app.quit();
 
 let mainWindow;
@@ -9,6 +11,7 @@ function createWindow() {
     width: 800,
     height: 600,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: true,
     },
   });
@@ -18,10 +21,15 @@ function createWindow() {
   mainWindow.on('closed', function () {
     mainWindow = null;
   });
+
+  mainWindow.webContents.openDevTools()
 }
 
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  startDiscovery();
+});
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
@@ -29,4 +37,13 @@ app.on('window-all-closed', function () {
 
 app.on('activate', function () {
   if (mainWindow === null) createWindow();
+});
+
+// IPC handlers
+ipcMain.handle('wled:get-devices', () => getDevices());
+
+onDevicesUpdated((devices) => {
+    if (mainWindow) {
+        mainWindow.webContents.send('wled:update', devices);
+    }
 });
