@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <HelloWorld />
+      <WledController />
     </v-main>
   </v-app>
 </template>
