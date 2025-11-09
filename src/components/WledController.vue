@@ -107,6 +107,20 @@
   </v-card>
   <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
     <v-card-title class="d-flex justify-space-between align-center">
+      <span class="text-h6">Quick Effects:</span>
+    </v-card-title>
+    <v-button-group>
+      <v-btn
+        v-for="(quickEffect, index) in quickEffects"
+        :key="index"
+        @click="runQuickEffect(quickEffect.preset, quickEffect.timeout)"
+      >
+        {{ quickEffect.name }}
+      </v-btn>
+    </v-button-group>
+  </v-card>
+  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
+    <v-card-title class="d-flex justify-space-between align-center">
       <span class="text-h6">Advanced</span>
     </v-card-title>
     <v-color-picker
@@ -180,6 +194,7 @@ import { onMounted, ref, watch, computed, watchEffect } from 'vue';
 import axios from 'axios'
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
+import { ru } from 'vuetify/locale';
 
 
 //define reactive variables
@@ -264,6 +279,12 @@ const phase2Colors = [
 
 ];
 
+const quickEffects = [
+  {name: "Large distortion", timeout: 7500, preset: { seg: [{col:[[255, 0, 0],[0, 0, 0],[0, 0, 0]], fx: 129, sx: 255, ix: 255, pal: 0}], bri: 255 }},
+  {name: "Lightning explosion", timeout: 5000, preset: { seg: [{col:[[255, 255, 150],[0, 0, 0],[0, 0, 0]], fx: 57, sx: 240, ix: 200, pal: 0}], bri: 255 }},
+  {name: "Portal Restart", timeout: 30000, preset: { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 44, sx: 0, ix: 0, pal: 11}], bri: 255 }},
+]
+
 const selectedIp = computed({
   get: () =>
     manualIp.value ||
@@ -308,18 +329,28 @@ const updatePhase1Intensity = debounce(async (val) => {
   const preset = phase1Presets[val - 1];
   if (!preset) return;
   await axios.post(`http://${selectedIp.value}/json/state`, { ...preset, "psave": 1 });
-  fetchDeviceState();
+  fetchDeviceJson();
 }, 500); // debounce with 500ms delay
 
 const updatePhase2Intensity = debounce(async (val) => {
   const preset = phase2Presets[val - 1];
   if (!preset) return;
   await axios.post(`http://${selectedIp.value}/json/state`, { ...preset, "psave": 1 });
-  fetchDeviceState();
+  fetchDeviceJson();
 
 }, 500); // debounce with 500ms delay
 
 const fetchDeviceState = async () => {
+  try {
+    const response = await axios.get(`http://${selectedIp.value}/json/state`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching WLED state:", error);
+    return null;
+  }
+};
+
+const fetchDeviceJson = async () => {
   try {
     const response = await axios.get(`http://${selectedIp.value}/json`);
     const data = response.data;
@@ -396,6 +427,21 @@ const refreshDevices = async () => {
   }
 };
 
+const runQuickEffect = async (preset, timeout) => {
+  try {
+    const currentPreset = await fetchDeviceState();
+    await axios.post(`http://${selectedIp.value}/json/state`, { ...preset});
+    await sleep(timeout); //wait 5 seconds
+    await axios.post(`http://${selectedIp.value}/json/state`, { ...currentPreset, "psave": 1 });
+  } catch (error) {
+    console.error("Error applying quick effect:", error);
+  }
+};
+
+const sleep = (ms) => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+
 watch(devices, (newDevices) => {
   if(newDevices.length === 0){
     selectedDevice.value = null;
@@ -445,12 +491,12 @@ watch(selectedColor, async (newColor) => {
 
 watch(selectedDevice, async (newDevice) => {
   if (!newDevice) return;
-  await fetchDeviceState();
+  await fetchDeviceJson();
 });
 
 watch(manualIp, async (newIp) => {
   if (!newIp || newIp.length < 8) return;
-  await fetchDeviceState();
+  await fetchDeviceJson();
 });
 
 watch(phase1Intensity, async (newVal) => {
