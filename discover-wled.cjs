@@ -24,13 +24,6 @@ function startDiscovery() {
     });
 }
 
-// Optional: keep the process alive
-process.on('SIGINT', () => {
-    console.log('\nStopping discovery...');
-    process.exit();
-});
-
-
 function getDevices() {
     return Array.from(devices.values());
 }

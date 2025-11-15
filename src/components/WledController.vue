@@ -51,6 +51,8 @@
   </v-card>
   <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
     <v-switch label="OFF/ON" inset v-model="onState" hide-details="auto"></v-switch>
+    <v-switch label="Sync all" inset v-model="syncAllState" hide-details="auto"></v-switch>
+    <v-switch label="Seg Only (no brightness)" v-if="syncAllState" inset v-model="syncSegmentOnly" hide-details="auto"></v-switch>
     <v-slider
       v-model="brightness"
       label="Brightness"
@@ -75,30 +77,14 @@
   </v-card>
   <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
     <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">Phase 1 Presets:</span>
+      <span class="text-h6">Portal Distortion:</span>
     </v-card-title>
     <v-slider
-      v-model="phase1Intensity"
+      v-model="portalDistortionIntensity"
       label="Intensity"
-      :color="phase1Color"
-      :max="phase1Max"
-      :min="phase1Min"
-      class="align-center"
-      hide-details
-      step="1"
-      tick-size="1"
-    />
-  </v-card>
-  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
-    <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">Phase 2 Presets:</span>
-    </v-card-title>
-    <v-slider
-      v-model="phase2Intensity"
-      label="Intensity"
-      :color="phase2Color"
-      :max="phase2Max"
-      :min="phase2Min"
+      :color="portalDistortionColor"
+      :max="portalDistortionMax"
+      :min="portalDistortionMin"
       class="align-center"
       hide-details
       step="1"
@@ -210,78 +196,38 @@ const selectedPalet = ref();
 const selectedDevice = ref(null);
 const devices = ref([]);
 const manualIp = ref(null);
+const allIps = ref([]);
 const loading = ref(false);
 const speed = ref(0);
 const intensity = ref(0);
 const selectedColor = ref(null);
-const phase1Intensity = ref(null);
-const phase1Min = ref(1);
-const phase1Max = ref(13);
-const phase1Color = ref(null);
-const phase2Intensity = ref(null);
-const phase2Min = ref(1);
-const phase2Max = ref(9);
-const phase2Color = ref(null);
+const portalDistortionIntensity = ref(null);
+const portalDistortionMin = ref(1);
+const portalDistortionMax = ref(5);
+const portalDistortionColor = ref(null);
+const syncAllState = ref(false);
+const syncSegmentOnly = ref(true);
 
-const phase1Presets = [
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 1, ix: 1, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 1, ix: 64, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 1, ix: 128, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 1, ix: 192, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 1, ix: 255, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 64, ix: 255, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 128, ix: 255, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 192, ix: 255, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 21, sx: 255, ix: 255, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 22, sx: 255, ix: 64, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 22, sx: 255, ix: 128, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 22, sx: 255, ix: 192, pal: 0}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 22, sx: 255, ix: 255, pal: 0}], bri: 255 },
-];
-const phase2Presets = [
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 255, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 192, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 128, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 64, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 1, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 192, ix: 1, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 128, ix: 1, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 64, ix: 1, pal: 2}], bri: 255 },
-  { seg: [{col:[[180, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 1, ix: 1, pal: 2}], bri: 255 },
+const portalDistortionPresets = [
+  { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 1, ix: 128, pal: 2}] },
+  { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 100, ix: 128, pal: 2}] },
+  { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 150, ix: 128, pal: 2}] },
+  { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 200, ix: 128, pal: 2}] },
+  { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 255, ix: 128, pal: 2}] },
 ];
 
-const phase1Colors = [
-  { color: "#00FF00" },
-  { color: "#24FF00" },
-  { color: "#48FF00" },
-  { color: "#6CFF00" },
-  { color: "#90FF00" },
-  { color: "#B4FF00" },
-  { color: "#D8FF00" },
-  { color: "#FCFF00" },
-  { color: "#FFF200" },
-  { color: "#FFEB00" },
-  { color: "#FFE300" },
-  { color: "#FFDB00" },
-  { color: "#FFD300" },
+const portalDistortionColors = [
+  { color: "#66BB6A" }, // Green
+  { color: "#FFD54F" }, // Yellow
+  { color: "#FF9800" }, // Orange
+  { color: "#F44336" }, // Red
+  { color: "#B71C1C" }  // Deep Red
 ];
 
-const phase2Colors = [
-  { color: "#FFCB00" },
-  { color: "#FFC300" },
-  { color: "#FF9E00" },
-  { color: "#FF7700" },
-  { color: "#FF5000" },
-  { color: "#FF2900" },
-  { color: "#FF1200" },
-  { color: "#F00000" },
-  { color: "#A00000" }
-
-];
 
 const quickEffects = [
-  {name: "Large distortion", timeout: 7500, preset: { seg: [{col:[[255, 0, 0],[0, 0, 0],[0, 0, 0]], fx: 129, sx: 255, ix: 255, pal: 0}], bri: 255 }},
-  {name: "Lightning explosion", timeout: 5000, preset: { seg: [{col:[[255, 255, 150],[0, 0, 0],[0, 0, 0]], fx: 57, sx: 240, ix: 200, pal: 0}], bri: 255 }},
+  {name: "Large distortion", timeout: 10000, preset: { seg: [{col:[[255, 0, 0],[0, 0, 0],[0, 0, 0]], fx: 129, sx: 255, ix: 255, pal: 0}], bri: 255 }},
+  {name: "Lightning explosion", timeout: 7500, preset: { seg: [{col:[[255, 255, 150],[0, 0, 0],[0, 0, 0]], fx: 57, sx: 240, ix: 200, pal: 0}], bri: 255 }},
   {name: "Portal Restart", timeout: 30000, preset: { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 44, sx: 0, ix: 0, pal: 11}], bri: 255 }},
 ]
 
@@ -297,48 +243,82 @@ const selectedIp = computed({
 });
 
 
-// const selectedDevice?.referer?.address = "192.168.1.164"; // Replace with your WLED IP
+
+const sendPostRequest = async (endpoint, data) => {
+  try {
+    if (syncAllState.value) {
+      const currentDevices = await window.wledAPI.getDevices();
+      allIps.value = currentDevices.map(device => device.referer?.address);
+
+      const requests = allIps.value.map(ip => {
+        let requestData = { ...data }; // clone to avoid mutation
+
+        // Sanitize seg
+        requestData.seg = requestData.seg?.map(seg => {
+          const sanitizedSeg = {};
+          if (seg.fx !== undefined) sanitizedSeg.fx = seg.fx;
+          if (seg.sx !== undefined) sanitizedSeg.sx = seg.sx;
+          if (seg.ix !== undefined) sanitizedSeg.ix = seg.ix;
+          if (seg.pal !== undefined) sanitizedSeg.pal = seg.pal;
+          if (seg.col !== undefined) sanitizedSeg.col = seg.col;
+          return sanitizedSeg;
+        });
+
+        if (syncSegmentOnly.value) {
+          const { seg, on, psave } = requestData;
+          requestData = { seg, on, psave };
+        } else {
+          const { bri, on, seg, psave } = requestData;
+          requestData = { bri, on, seg, psave };
+        }
+
+        return axios.post(`http://${ip}${endpoint}`, requestData);
+        // or use your helper:
+        // return sendPostRequest(`http://${ip}${endpoint}`, requestData);
+      });
+
+      await Promise.all(requests);
+    }
+    else {
+      const response = await axios.post(`http://${selectedIp.value}${endpoint}`, data);
+      return response.data;
+    }
+  } catch (error) {
+    console.error(`Error sending POST request to ${endpoint}:`, error);
+    throw error;
+  }
+};
 
 // define throttled function
 const updateBrightness = throttle(async (val) => {
-  await axios.post(`http://${selectedIp.value}/json/state`, { bri: val, "psave": 1 });
+  await sendPostRequest('/json/state', { bri: val, psave: 1 });
   console.log("WLED brightness updated:", val);
-}, 500); // only allow one request every 500ms
+}, 500);
 
 const updateSpeed = throttle(async (val) => {
-  await axios.post(`http://${selectedIp.value}/json/state`, { seg: [{ sx: val }], "psave": 1 });
+  await sendPostRequest('/json/state', { seg: [{ sx: val }], psave: 1 });
   console.log("WLED speed updated:", val);
-}, 500); // only allow one request every 500ms
+}, 500);
 
 const updateIntensity = throttle(async (val) => {
-  await axios.post(`http://${selectedIp.value}/json/state`, { seg: [{ ix: val }], "psave": 1 });
+  await sendPostRequest('/json/state', { seg: [{ ix: val }], psave: 1 });
   console.log("WLED intensity updated:", val);
-}, 500); // only allow one request every 500ms
+}, 500);
 
 const updateColor = throttle(async (color) => {
-  await axios.post(`http://${selectedIp.value}/json/state`, {
-    seg: [{
-      col: [[color.r, color.g, color.b]]
-    }],
-    "psave": 1
+  await sendPostRequest('/json/state', {
+    seg: [{ col: [[color.r, color.g, color.b]] }],
+    psave: 1
   });
   console.log("WLED color updated:", color);
-}, 500); // only allow one request every 500ms
+}, 500);
 
-const updatePhase1Intensity = debounce(async (val) => {
-  const preset = phase1Presets[val - 1];
+const updateportalDistortionIntensity = debounce(async (val) => {
+  const preset = portalDistortionPresets[val - 1];
   if (!preset) return;
-  await axios.post(`http://${selectedIp.value}/json/state`, { ...preset, "psave": 1 });
+  await sendPostRequest('/json/state', { ...preset, psave: 1 });
   fetchDeviceJson();
-}, 500); // debounce with 500ms delay
-
-const updatePhase2Intensity = debounce(async (val) => {
-  const preset = phase2Presets[val - 1];
-  if (!preset) return;
-  await axios.post(`http://${selectedIp.value}/json/state`, { ...preset, "psave": 1 });
-  fetchDeviceJson();
-
-}, 500); // debounce with 500ms delay
+}, 500);
 
 const fetchDeviceState = async () => {
   try {
@@ -357,18 +337,16 @@ const fetchDeviceJson = async () => {
 
     console.log("Fetched WLED info:", data);
 
-    //get all starting values and apply them to the reactive variables
     onState.value = data.state.on;
     brightness.value = data.state.bri;
 
-    //get effects
     effects.value = data.effects
-    .map((name, index) => ({ title: name, value: index }))
-    .filter(e => e.title && e.title !== "RSVD");
-    //get palettes
+      .map((name, index) => ({ title: name, value: index }))
+      .filter(e => e.title && e.title !== "RSVD");
+
     palettes.value = data.palettes
-    .map((name, index) => ({ title: name, value: index }))
-    .filter(e => e.title && e.title !== "RSVD");    
+      .map((name, index) => ({ title: name, value: index }))
+      .filter(e => e.title && e.title !== "RSVD");
 
     selectedEffect.value = data.state.seg[0].fx;
     selectedPalet.value = data.state.seg[0].pal;
@@ -380,12 +358,7 @@ const fetchDeviceJson = async () => {
       b: data.state.seg[0].col[0][2],
     };
 
-    // console.log(`On: ${onState.value}`);
-    // console.log(`Brightness: ${brightness.value}`);
-    // console.log(`Effects: ${effects.value}`);
-    // console.log(data)
-
-    const currentPhase1Preset = phase1Presets.findIndex(preset => 
+    const currentportalDistortionPreset = portalDistortionPresets.findIndex(preset =>
       JSON.stringify(preset.seg[0].col) === JSON.stringify(data.state.seg[0].col) &&
       preset.seg[0].fx === data.state.seg[0].fx &&
       preset.seg[0].sx === data.state.seg[0].sx &&
@@ -393,20 +366,8 @@ const fetchDeviceJson = async () => {
       preset.seg[0].pal === data.state.seg[0].pal
     );
 
-    if (currentPhase1Preset !== -1) {
-      phase1Intensity.value = currentPhase1Preset + 1; // Adjusting for 1-based index
-    }
-
-    const currentPhase2Preset = phase2Presets.findIndex(preset => 
-      JSON.stringify(preset.seg[0].col) === JSON.stringify(data.state.seg[0].col) &&
-      preset.seg[0].fx === data.state.seg[0].fx &&
-      preset.seg[0].sx === data.state.seg[0].sx &&
-      preset.seg[0].ix === data.state.seg[0].ix &&
-      preset.seg[0].pal === data.state.seg[0].pal
-    );
-
-    if (currentPhase2Preset !== -1) {
-      phase2Intensity.value = currentPhase2Preset + 1; // Adjusting for 1-based index
+    if (currentportalDistortionPreset !== -1) {
+      portalDistortionIntensity.value = currentportalDistortionPreset + 1;
     }
 
   } catch (error) {
@@ -430,27 +391,25 @@ const refreshDevices = async () => {
 const runQuickEffect = async (preset, timeout) => {
   try {
     const currentPreset = await fetchDeviceState();
-    await axios.post(`http://${selectedIp.value}/json/state`, { ...preset});
-    await sleep(timeout); //wait 5 seconds
-    await axios.post(`http://${selectedIp.value}/json/state`, { ...currentPreset, "psave": 1 });
+    await sendPostRequest('/json/state', { ...preset });
+    await sleep(timeout);
+    await sendPostRequest('/json/state', { ...currentPreset, psave: 1 });
   } catch (error) {
     console.error("Error applying quick effect:", error);
   }
 };
 
-const sleep = (ms) => {
-  return new Promise(resolve => setTimeout(resolve, ms));
-};
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 watch(devices, (newDevices) => {
-  if(newDevices.length === 0){
+  if (newDevices.length === 0) {
     selectedDevice.value = null;
   }
 });
 
 watch(onState, async (newVal) => {
   if (newVal == null) return;
-  await axios.post(`http://${selectedIp.value}/json/state`, { on: newVal });
+  await sendPostRequest('/json/state', { on: newVal });
 });
 
 watch(brightness, (newVal) => {
@@ -458,33 +417,31 @@ watch(brightness, (newVal) => {
   updateBrightness(newVal);
 });
 
-watch(speed, async (newVal) => {
+watch(speed, (newVal) => {
   if (newVal == null) return;
   updateSpeed(newVal);
 });
 
-watch(intensity, async (newVal) => {
+watch(intensity, (newVal) => {
   if (newVal == null) return;
   updateIntensity(newVal);
 });
 
 watch(selectedEffect, async (newVal) => {
   if (newVal == null) return;
-  //check if the effects match with the existing effects, other wise do not send api call
   if (!effects.value.includes(selectedEffect.value)) return;
-  await axios.post(`http://${selectedIp.value}/json/state`, { seg: [{ fx: newVal.value }], "psave": 1 });
+  await sendPostRequest('/json/state', { seg: [{ fx: newVal.value }], psave: 1 });
   console.log("WLED effect updated:", newVal);
 });
 
 watch(selectedPalet, async (newVal) => {
   if (newVal == null) return;
-  //check if the effects match with the existing effects, other wise do not send api call
   if (!palettes.value.includes(selectedPalet.value)) return;
-  await axios.post(`http://${selectedIp.value}/json/state`, { seg: [{ pal: newVal.value }], "psave": 1 });
-  console.log("WLED effect updated:", newVal);
+  await sendPostRequest('/json/state', { seg: [{ pal: newVal.value }], psave: 1 });
+  console.log("WLED palette updated:", newVal);
 });
 
-watch(selectedColor, async (newColor) => {
+watch(selectedColor, (newColor) => {
   if (!newColor) return;
   updateColor(newColor);
 });
@@ -499,33 +456,21 @@ watch(manualIp, async (newIp) => {
   await fetchDeviceJson();
 });
 
-watch(phase1Intensity, async (newVal) => {
+watch(portalDistortionIntensity, (newVal) => {
   if (newVal == null) return;
-  phase1Color.value = phase1Colors[newVal - 1].color;
-  phase2Intensity.value = null; //reset phase 1 when phase 2 is changed
-  phase2Color.value = null;
-  updatePhase1Intensity(newVal);
-
+  portalDistortionColor.value = portalDistortionColors[newVal - 1].color;
+  updateportalDistortionIntensity(newVal);
 });
 
-watch(phase2Intensity, async (newVal) => {
-  if (newVal == null) return;
-  phase2Color.value = phase2Colors[newVal - 1].color;
-  phase1Intensity.value = null; //reset phase 1 when phase 2 is changed
-  phase1Color.value = null;
-  updatePhase2Intensity(newVal);
-});
-
-onMounted( async()=>{
-  try{
+onMounted(async () => {
+  try {
     devices.value = await window.wledAPI.getDevices();
     window.wledAPI.onUpdate((newDevices) => {
       devices.value = newDevices;
     });
-  }
-  catch(error){
+  } catch (error) {
     console.error("Error fetching WLED state:", error.message);
   }
-})
+});
 
 </script>
