@@ -1,191 +1,218 @@
 <template>
+  <v-container v-show="!disableControls">
     <v-card class="pa-4" elevation="2" rounded="xl">
-    <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">WLED Devices</span>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span class="text-h6">WLED Devices</span>
 
-      <v-btn
-        color="primary"
-        variant="flat"
-        prepend-icon="mdi-refresh"
-        @click="refreshDevices"
-        :loading="loading"
+        <v-btn
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-refresh"
+          @click="refreshDevices"
+          :loading="loading"
+        >
+          Refresh
+        </v-btn>
+      </v-card-title>
+
+      <v-divider class="my-3" />
+      <v-text-field
+        v-model="selectedIp"
+        label="Manual IP Entry"
+        variant="outlined"
+        density="compact"
+        clearable
+        hide-details="auto"
+      />
+
+      <v-divider class="my-3" />
+      <v-select
+        v-model="selectedDevice"
+        :items="devices"
+        item-title="name"
+        label="Select WLED device"
+        variant="outlined"
+        density="compact"
+        clearable
+        return-object
+        hide-details="auto"
+        :disabled="loading || devices.length === 0"
+      />
+
+      <v-alert
+        v-if="selectedIp"
+        type="info"
+        class="mt-4"
+        border="start"
+        color="blue-lighten-4"
+        density="compact"
+        :text="`IP: ${selectedIp}`"
       >
-        Refresh
-      </v-btn>
-    </v-card-title>
+      </v-alert>
+    </v-card>
+    <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
+      <v-switch label="OFF/ON" inset v-model="onState" hide-details="auto"></v-switch>
+      <v-switch label="Sync all" inset v-model="syncAllState" hide-details="auto"></v-switch>
+      <v-switch label="Seg Only (no brightness)" v-if="syncAllState" inset v-model="syncSegmentOnly" hide-details="auto"></v-switch>
+      <v-slider
+        v-model="brightness"
+        label="Brightness"
+        :max="max"
+        :min="min"
+        class="align-center"
+        hide-details
+        step="1"
+        tick-size="1"
+      >
+        <template v-slot:append>
+          <v-text-field
+            v-model="brightness"
+            density="compact"
+            style="width: 70px"
+            type="number"
+            hide-details
+            single-line
+          ></v-text-field>
+        </template>
+      </v-slider>
+    </v-card>
+    <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span class="text-h6">Portal Distortion:</span>
+      </v-card-title>
+      <v-slider
+        v-model="portalDistortionIntensity"
+        label="Intensity"
+        :color="portalDistortionColor"
+        :max="portalDistortionMax"
+        :min="portalDistortionMin"
+        class="align-center"
+        hide-details
+        step="1"
+        tick-size="1"
+      />
+    </v-card>
+    <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span class="text-h6">Quick Effects:</span>
+      </v-card-title>
+      <v-button-group>
+        <v-btn
+          v-for="(quickEffect, index) in quickEffects"
+          :key="index"
+          @click="runQuickEffect(quickEffect.preset, quickEffect.timeout)"
+        >
+          {{ quickEffect.name }}
+        </v-btn>
+      </v-button-group>
+      <v-text-field
+        v-model="manualEffectDuration"
+        type="number"
+        label="Overwrite standard effect duration (ms)"
+        :step="1000"
+        hide-details="auto"
+        clearable
+      ></v-text-field>
+    </v-card>
+    <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span class="text-h6">Advanced</span>
+      </v-card-title>
+      <v-color-picker
+        v-model="selectedColor"
+        mode="rgb"
+        swatches-max-height="200"
+        label="Pick a color"
+      />
+      <v-combobox
+        label="Effect"
+        v-model="selectedEffect"
+        :items="effects"
+        item-title="title"
+        item-value="value"
+        variant="outlined"
+      />
+      <v-combobox
+        label="Pallet"
+        v-model="selectedPalet"
+        :items="palettes"
+        item-title="title"
+        item-value="value"
+        variant="outlined"
+      />
+      <v-slider
+        v-model="speed"
+        label="Speed"
+        :max="max"
+        :min="min"
+        class="align-center"
+        hide-details
+        step="1"
+        tick-size="1">
+        <template v-slot:append>
+          <v-text-field
+            v-model="speed"
+            density="compact"
+            style="width: 70px"
+            type="number"
+            hide-details
+            single-line
+          ></v-text-field>
+        </template>
+      </v-slider>
 
-    <v-divider class="my-3" />
-    <v-text-field
-      v-model="selectedIp"
-      label="Manual IP Entry"
-      variant="outlined"
-      density="compact"
-      clearable
-      hide-details="auto"
-    />
-
-    <v-divider class="my-3" />
-    <v-select
-      v-model="selectedDevice"
-      :items="devices"
-      item-title="name"
-      label="Select WLED device"
-      variant="outlined"
-      density="compact"
-      clearable
-      return-object
-      hide-details="auto"
-      :disabled="loading || devices.length === 0"
-    />
-
-    <v-alert
-      v-if="selectedIp"
-      type="info"
-      class="mt-4"
-      border="start"
-      color="blue-lighten-4"
-      density="compact"
-      :text="`IP: ${selectedIp}`"
-    >
+      <v-slider
+        v-model="intensity"
+        label="Intensity"
+        :max="max"
+        :min="min"
+        class="align-center"
+        hide-details
+        step="1"
+        tick-size="1">
+        <template v-slot:append>
+          <v-text-field
+            v-model="intensity"
+            density="compact"
+            style="width: 70px"
+            type="number"
+            hide-details
+            single-line
+          ></v-text-field>
+        </template>
+      </v-slider>
+    </v-card>
+  </v-container>
+  <v-container v-show="disableControls" class="my-4">
+    <v-alert type="info" border="start" color="blue-lighten-4" density="comfortable">
+      {{ disableControlsMessage }}
     </v-alert>
-  </v-card>
-  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
-    <v-switch label="OFF/ON" inset v-model="onState" hide-details="auto"></v-switch>
-    <v-switch label="Sync all" inset v-model="syncAllState" hide-details="auto"></v-switch>
-    <v-switch label="Seg Only (no brightness)" v-if="syncAllState" inset v-model="syncSegmentOnly" hide-details="auto"></v-switch>
-    <v-slider
-      v-model="brightness"
-      label="Brightness"
-      :max="max"
-      :min="min"
-      class="align-center"
-      hide-details
-      step="1"
-      tick-size="1"
-    >
-      <template v-slot:append>
-        <v-text-field
-          v-model="brightness"
-          density="compact"
-          style="width: 70px"
-          type="number"
-          hide-details
-          single-line
-        ></v-text-field>
-      </template>
-    </v-slider>
-  </v-card>
-  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
-    <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">Portal Distortion:</span>
-    </v-card-title>
-    <v-slider
-      v-model="portalDistortionIntensity"
-      label="Intensity"
-      :color="portalDistortionColor"
-      :max="portalDistortionMax"
-      :min="portalDistortionMin"
-      class="align-center"
-      hide-details
-      step="1"
-      tick-size="1"
-    />
-  </v-card>
-  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
-    <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">Quick Effects:</span>
-    </v-card-title>
-    <v-button-group>
-      <v-btn
-        v-for="(quickEffect, index) in quickEffects"
-        :key="index"
-        @click="runQuickEffect(quickEffect.preset, quickEffect.timeout)"
-      >
-        {{ quickEffect.name }}
-      </v-btn>
-    </v-button-group>
-  </v-card>
-  <v-card v-if="selectedIp" class="pa-4" elevation="2" rounded="xl">
-    <v-card-title class="d-flex justify-space-between align-center">
-      <span class="text-h6">Advanced</span>
-    </v-card-title>
-    <v-color-picker
-      v-model="selectedColor"
-      mode="rgb"
-      swatches-max-height="200"
-      label="Pick a color"
-    />
-    <v-combobox
-      label="Effect"
-      v-model="selectedEffect"
-      :items="effects"
-      item-title="title"
-      item-value="value"
-      variant="outlined"
-    />
-    <v-combobox
-      label="Pallet"
-      v-model="selectedPalet"
-      :items="palettes"
-      item-title="title"
-      item-value="value"
-      variant="outlined"
-    />
-    <v-slider
-      v-model="speed"
-      label="Speed"
-      :max="max"
-      :min="min"
-      class="align-center"
-      hide-details
-      step="1"
-      tick-size="1">
-      <template v-slot:append>
-        <v-text-field
-          v-model="speed"
-          density="compact"
-          style="width: 70px"
-          type="number"
-          hide-details
-          single-line
-        ></v-text-field>
-      </template>
-    </v-slider>
-
-    <v-slider
-      v-model="intensity"
-      label="Intensity"
-      :max="max"
-      :min="min"
-      class="align-center"
-      hide-details
-      step="1"
-      tick-size="1">
-      <template v-slot:append>
-        <v-text-field
-          v-model="intensity"
-          density="compact"
-          style="width: 70px"
-          type="number"
-          hide-details
-          single-line
-        ></v-text-field>
-      </template>
-    </v-slider>
-  </v-card>
+    <v-switch
+    v-model="disableControls"
+    hide-details="auto"
+    inset
+  >
+    <!-- Slot for the thumb (the part you drag) -->
+    <template #thumb>
+      <v-icon>{{ disableControls ? 'mdi-lock' : 'mdi-lock-open' }}</v-icon>
+    </template>
+  </v-switch>
+  </v-container>
 </template>
 
 <script setup>
-import { onMounted, ref, watch, computed, watchEffect } from 'vue';
+import { onMounted, ref, watch, computed, onUnmounted } from 'vue';
 import axios from 'axios'
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
+import _ from 'lodash';
 import { ru } from 'vuetify/locale';
 
 
 //define reactive variables
 const initialized = ref(false);
 const onState = ref(false);
+const liveState = ref(null);
 const min = ref(0);
 const max = ref(255);
 const brightness = ref(1);
@@ -207,6 +234,10 @@ const portalDistortionMax = ref(5);
 const portalDistortionColor = ref(null);
 const syncAllState = ref(false);
 const syncSegmentOnly = ref(true);
+const websocket = ref(null);
+const disableControls = ref(false);
+const disableControlsMessage = ref("");
+const manualEffectDuration = ref(null);
 
 const portalDistortionPresets = [
   { seg: [{col:[[0, 0, 255],[0, 0, 0],[0, 0, 0]], fx: 80, sx: 1, ix: 128, pal: 2}] },
@@ -242,7 +273,26 @@ const selectedIp = computed({
   },
 });
 
+const setWebsocket = (wledIp) => {
+  websocket.value = new WebSocket(`ws://${wledIp}/ws`);
+  websocket.value.onopen = () => {
+  console.log("WLED WebSocket connected");
+  websocket.value.send('{"lv":true}');
+};
 
+  websocket.value.onmessage = event => {
+    const msg = JSON.parse(event.data);
+
+    console.log("WLED WebSocket message received:", msg);
+    // WLED sends multiple types of packets; state updates include "state"
+    if (msg.state) {
+      liveState.value = msg.state;
+    }
+  };
+
+  websocket.value.onopen = () => console.log("WLED WebSocket connected");
+  websocket.value.onerror = e => console.error("WLED WebSocket error", e);
+};
 
 const sendPostRequest = async (endpoint, data) => {
   try {
@@ -392,6 +442,10 @@ const runQuickEffect = async (preset, timeout) => {
   try {
     const currentPreset = await fetchDeviceState();
     await sendPostRequest('/json/state', { ...preset });
+    
+    if(manualEffectDuration.value){
+      timeout = parseInt(manualEffectDuration.value);
+    }
     await sleep(timeout);
     await sendPostRequest('/json/state', { ...currentPreset, psave: 1 });
   } catch (error) {
@@ -462,6 +516,29 @@ watch(portalDistortionIntensity, (newVal) => {
   updateportalDistortionIntensity(newVal);
 });
 
+watch(selectedIp, (ip) => {
+  if (!ip || ip.length < 7) return;
+  console.log("Connecting WebSocket:", ip);
+  setWebsocket(ip);
+});
+
+watch(liveState, (newState) => {
+  if (!newState) return;
+
+  const matchedEffect = quickEffects.find(effect =>
+    _.isMatch(newState, effect.preset)
+  );
+
+  if (matchedEffect) {
+    console.log(`Live state matches ${matchedEffect.name} effect.`);
+    disableControlsMessage.value = `Controls disabled: ${matchedEffect.name} effect is active.`;
+    disableControls.value = true;
+  } 
+  else {
+    disableControls.value = false;
+  }
+});
+
 onMounted(async () => {
   try {
     devices.value = await window.wledAPI.getDevices();
@@ -470,6 +547,12 @@ onMounted(async () => {
     });
   } catch (error) {
     console.error("Error fetching WLED state:", error.message);
+  }
+});
+
+onUnmounted(() => {
+  if (websocket.value){
+    websocket.value.close();
   }
 });
 
