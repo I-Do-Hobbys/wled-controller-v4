@@ -232,7 +232,7 @@ const portalDistortionIntensity = ref(null);
 const portalDistortionMin = ref(1);
 const portalDistortionMax = ref(5);
 const portalDistortionColor = ref(null);
-const syncAllState = ref(false);
+const syncAllState = ref(true);
 const syncSegmentOnly = ref(true);
 const websocket = ref(null);
 const disableControls = ref(false);
@@ -315,6 +315,11 @@ const sendPostRequest = async (endpoint, data) => {
         });
 
         if (syncSegmentOnly.value) {
+          if (ip === selectedIp.value) {
+            const { bri, on, seg, psave } = requestData;
+            requestData = { bri, on, seg, psave };
+            return axios.post(`http://${ip}${endpoint}`, requestData);
+          }
           const { seg, on, psave } = requestData;
           requestData = { seg, on, psave };
         } else {
@@ -522,19 +527,30 @@ watch(selectedIp, (ip) => {
   setWebsocket(ip);
 });
 
-watch(liveState, (newState) => {
-  if (!newState) return;
+watch(liveState, (s) => {
+  if (!s || !s.seg || !s.seg[0]) {
+    disableControls.value = false;
+    return;
+  }
 
-  const matchedEffect = quickEffects.find(effect =>
-    _.isMatch(newState, effect.preset)
-  );
+  const seg = s.seg[0];
 
-  if (matchedEffect) {
-    console.log(`Live state matches ${matchedEffect.name} effect.`);
-    disableControlsMessage.value = `Controls disabled: ${matchedEffect.name} effect is active.`;
+  const isQuickEffectActive = quickEffects.find((effect) => {
+    const presetSeg = effect.preset.seg[0];
+
+    return (
+      seg.fx === presetSeg.fx &&
+      seg.sx === presetSeg.sx &&
+      seg.ix === presetSeg.ix &&
+      seg.pal === presetSeg.pal &&
+      JSON.stringify(seg.col[0]) === JSON.stringify(presetSeg.col[0])
+    );
+  });
+
+  if (isQuickEffectActive) {
+    disableControlsMessage.value = `Controls disabled: ${isQuickEffectActive.name} is active!`;
     disableControls.value = true;
-  } 
-  else {
+  } else {
     disableControls.value = false;
   }
 });
